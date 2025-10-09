@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipecat-ai-bey"
+version = "0.0.0"
+description = "Generate real-time video avatars for your Pipecat AI agents with Beyond Presence"
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["webrtc", "audio", "video", "ai"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Communications :: Conferencing",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = [
+    "pipecat-ai",
+]
+
+[project.urls]
+Source = "https://github.com/bey-dev/pipecat-bey"
+Website = "https://beyondpresence.ai"
+
+[dependency-groups]
+dev = [
+    "pipecat-ai[daily,runner,silero,webrtc]",  # for the example
+    "python-dotenv>=1.0.1,<2.0.0",  # for the example
+    "ruff>=0.12.11,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "D", # Docstring rules
+    "I", # Import rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Skip docstring checks for non-source code
+"example.py" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
