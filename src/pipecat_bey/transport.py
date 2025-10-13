@@ -11,7 +11,7 @@ Generate real-time video avatars for your Pipecat AI agents with Beyond Presence
 
 import asyncio
 from functools import partial
-from typing import Any, Awaitable, Callable, Mapping, Optional
+from typing import Any, Awaitable, Callable, Mapping, Optional, Tuple
 
 import aiohttp
 from daily.daily import AudioData
@@ -37,12 +37,17 @@ from pipecat.transports.daily.transport import (
     DailyParams,
     DailyTransportClient,
 )
+from pipecat.transports.daily.utils import (
+    DailyMeetingTokenParams,
+    DailyMeetingTokenProperties,
+    DailyRESTHelper,
+)
 from pydantic import BaseModel
 
 BASE_API_URL = "https://api.bey.dev/v1"
 FRAME_RATE = 25
 
-BEY_AVATAR_BOT_NAME = "bey-avatar"
+_BEY_AVATAR_BOT_NAME = "bey-avatar"
 
 
 class BeyApi:
@@ -373,6 +378,53 @@ class BeyTransportClient:
         await self._client.register_audio_destination(destination)
 
 
+class DailyCredentialsProvider:
+    """Provides Daily room URL and meeting token.
+
+    This class is responsible for providing the Daily room URL and meeting token
+    needed by the Bey avatar bot to join the conversation.
+    """
+
+    def __init__(self, daily_rest_helper: DailyRESTHelper, room_url: str) -> None:
+        """Initialize the DailyCredentialsProvider.
+
+        Args:
+            daily_rest_helper: An instance of DailyRESTHelper for fetching tokens.
+            room_url: The Daily room URL where the session will take place.
+        """
+        self._daily_rest_helper = daily_rest_helper
+        self._room_url = room_url
+
+        self._future: Optional[asyncio.Future] = None
+
+    def get_url(self) -> str:
+        """Get the Daily room URL.
+
+        Returns:
+            The Daily room URL as a string.
+        """
+        return self._room_url
+
+    async def get_token(self) -> str:
+        """Get the cached Daily meeting token, fetching it if not already cached.
+
+        Returns:
+            The Daily meeting token as a string.
+        """
+        if self._future is None:
+            self._future = asyncio.create_task(self._retrieve_token())
+        return await self._future
+
+    async def _retrieve_token(self) -> str:
+        return await self._daily_rest_helper.get_token(
+            room_url=self._room_url,
+            params=DailyMeetingTokenParams(
+                properties=DailyMeetingTokenProperties(user_name=_BEY_AVATAR_BOT_NAME),
+            ),
+            expiry_time=3600,  # 1 hour
+        )
+
+
 class BeyInputTransport(BaseInputTransport):
     """Input transport for receiving audio and events from Bey conversations.
 
@@ -384,8 +436,7 @@ class BeyInputTransport(BaseInputTransport):
         self,
         client: BeyTransportClient,
         params: TransportParams,
-        room_url: str,
-        token: str,
+        daily_credentials_provider: DailyCredentialsProvider,
         **kwargs,
     ):
         """Initialize the Bey input transport.
@@ -393,15 +444,13 @@ class BeyInputTransport(BaseInputTransport):
         Args:
             client: The Bey transport client instance.
             params: Transport configuration parameters.
-            room_url: Daily room URL for the session.
-            token: Daily meeting token for authentication.
+            daily_credentials_provider: Provider for Daily room URL and token.
             **kwargs: Additional arguments passed to parent class.
         """
         super().__init__(params, **kwargs)
         self._client = client
         self._params = params
-        self._room_url = room_url
-        self._token = token
+        self._daily_credentials_provider = daily_credentials_provider
         # Whether we have seen a StartFrame already.
         self._initialized = False
 
@@ -412,7 +461,9 @@ class BeyInputTransport(BaseInputTransport):
             setup: The frame processor setup configuration.
         """
         await super().setup(setup)
-        await self._client.setup(setup, self._room_url, self._token)
+        room_url = self._daily_credentials_provider.get_url()
+        token = await self._daily_credentials_provider.get_token()
+        await self._client.setup(setup, room_url, token)
 
     async def cleanup(self):
         """Cleanup input transport resources."""
@@ -495,8 +546,7 @@ class BeyOutputTransport(BaseOutputTransport):
         self,
         client: BeyTransportClient,
         params: TransportParams,
-        room_url: str,
-        token: str,
+        daily_credentials_provider: DailyCredentialsProvider,
         **kwargs,
     ):
         """Initialize the Bey output transport.
@@ -505,14 +555,13 @@ class BeyOutputTransport(BaseOutputTransport):
             client: The Bey transport client instance.
             params: Transport configuration parameters.
             room_url: Daily room URL for the session.
-            token: Daily meeting token for authentication.
+            daily_credentials_provider: Provider for Daily room URL and token.
             **kwargs: Additional arguments passed to parent class.
         """
         super().__init__(params, **kwargs)
         self._client = client
         self._params = params
-        self._room_url = room_url
-        self._token = token
+        self._daily_credentials_provider = daily_credentials_provider
 
         # Whether we have seen a StartFrame already.
         self._initialized = False
@@ -531,7 +580,9 @@ class BeyOutputTransport(BaseOutputTransport):
             setup: The frame processor setup configuration.
         """
         await super().setup(setup)
-        await self._client.setup(setup, self._room_url, self._token)
+        room_url = self._daily_credentials_provider.get_url()
+        token = await self._daily_credentials_provider.get_token()
+        await self._client.setup(setup, room_url, token)
 
     async def cleanup(self):
         """Cleanup output transport resources."""
@@ -662,10 +713,10 @@ class BeyTransport(BaseTransport):
         self,
         bot_name: str,
         session: aiohttp.ClientSession,
-        api_key: str,
+        bey_api_key: str,
+        daily_api_key: str,
         avatar_id: str,
         room_url: str,
-        token: str,
         params: BeyParams = BeyParams(),
         input_name: Optional[str] = None,
         output_name: Optional[str] = None,
@@ -675,10 +726,10 @@ class BeyTransport(BaseTransport):
         Args:
             bot_name: The name of the Pipecat bot.
             session: aiohttp session used for async HTTP requests.
-            api_key: Beyond Presence API key for authentication.
+            bey_api_key: Beyond Presence API key for authentication.
+            daily_api_key: Daily API key for Daily services.
             avatar_id: ID of the avatar to use for video generation.
             room_url: Daily room URL for the session.
-            token: Daily meeting token for authentication.
             params: Optional Bey-specific configuration parameters.
             input_name: Optional name for the input transport.
             output_name: Optional name for the output transport.
@@ -686,8 +737,6 @@ class BeyTransport(BaseTransport):
         super().__init__(input_name=input_name, output_name=output_name)
         self._params = params
         self._bot_name = bot_name
-        self._room_url = room_url
-        self._token = token
 
         callbacks = BeyCallbacks(
             on_participant_joined=self._on_participant_joined,
@@ -696,11 +745,19 @@ class BeyTransport(BaseTransport):
         self._client = BeyTransportClient(
             bot_name=bot_name,
             callbacks=callbacks,
-            api_key=api_key,
+            api_key=bey_api_key,
             avatar_id=avatar_id,
             session=session,
             params=params,
         )
+        self._daily_credentials_provider = DailyCredentialsProvider(
+            daily_rest_helper=DailyRESTHelper(
+                daily_api_key=daily_api_key,
+                aiohttp_session=session,
+            ),
+            room_url=room_url,
+        )
+
         self._input: Optional[BeyInputTransport] = None
         self._output: Optional[BeyOutputTransport] = None
         self._bey_participant_id = None
@@ -712,13 +769,13 @@ class BeyTransport(BaseTransport):
 
     async def _on_participant_left(self, participant, reason):
         """Handle participant left events."""
-        if participant.get("info", {}).get("userName", "") != BEY_AVATAR_BOT_NAME:
+        if participant.get("info", {}).get("userName", "") != _BEY_AVATAR_BOT_NAME:
             await self._on_client_disconnected(participant)
 
     async def _on_participant_joined(self, participant):
         """Handle participant joined events."""
         # Ignore the Bey avatar's microphone
-        if participant.get("info", {}).get("userName", "") == BEY_AVATAR_BOT_NAME:
+        if participant.get("info", {}).get("userName", "") == _BEY_AVATAR_BOT_NAME:
             self._bey_participant_id = participant["id"]
         else:
             await self._on_client_connected(participant)
@@ -756,8 +813,7 @@ class BeyTransport(BaseTransport):
             self._input = BeyInputTransport(
                 client=self._client,
                 params=self._params,
-                room_url=self._room_url,
-                token=self._token,
+                daily_credentials_provider=self._daily_credentials_provider,
             )
         return self._input
 
@@ -771,8 +827,7 @@ class BeyTransport(BaseTransport):
             self._output = BeyOutputTransport(
                 client=self._client,
                 params=self._params,
-                room_url=self._room_url,
-                token=self._token,
+                daily_credentials_provider=self._daily_credentials_provider,
             )
         return self._output
 

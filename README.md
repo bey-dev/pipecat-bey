@@ -21,25 +21,15 @@ pip install pipecat-ai-bey
 The `BeyTransport` integrates with the Beyond Presence platform to create conversational AI applications where a Beyond Presence avatar provides synchronized video and audio output while your bot handles the conversation logic.
 
 ```python
-from pipecat_bey import BEY_AVATAR_BOT_NAME, BeyParams, BeyTransport
-
-room_url = os.environ["DAILY_ROOM_URL"]
-
-token = await daily_rest_helper.get_token(
-    room_url=room_url,
-    params=DailyMeetingTokenParams(
-        properties=DailyMeetingTokenProperties(user_name=BEY_AVATAR_BOT_NAME),
-    ),
-    expiry_time=3600,  # 1 hour
-)
+from pipecat_bey import BeyParams, BeyTransport
 
 transport = BeyTransport(
     bot_name="Pipecat bot",
     session=session,
-    api_key=os.environ["BEY_API_KEY"],
+    bey_api_key=os.environ["BEY_API_KEY"],
+    daily_api_key=os.environ["DAILY_API_KEY"],
     avatar_id="b9be11b8-89fb-4227-8f86-4a881393cbdb",  # Default "Ege" avatar
-    room_url=room_url,
-    token=token,
+    room_url=os.environ["DAILY_ROOM_URL"],
     params=BeyParams(
         audio_in_enabled=True,
         audio_out_enabled=True,

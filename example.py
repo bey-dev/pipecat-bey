@@ -27,7 +27,7 @@ from pipecat.transports.daily.utils import (
     DailyRESTHelper,
 )
 
-from pipecat_bey import BEY_AVATAR_BOT_NAME, BeyParams, BeyTransport
+from pipecat_bey.transport import BeyParams, BeyTransport
 
 load_dotenv(override=True)
 
@@ -43,26 +43,13 @@ async def main():
     async with aiohttp.ClientSession() as session:
         room_url = os.environ["DAILY_ROOM_URL"]
 
-        daily_rest_helper = DailyRESTHelper(
-            daily_api_key=os.getenv("DAILY_API_KEY"),
-            aiohttp_session=session,
-        )
-
-        token = await daily_rest_helper.get_token(
-            room_url=room_url,
-            params=DailyMeetingTokenParams(
-                properties=DailyMeetingTokenProperties(user_name=BEY_AVATAR_BOT_NAME),
-            ),
-            expiry_time=3600,  # 1 hour
-        )
-
         transport = BeyTransport(
             bot_name="Pipecat bot",
             session=session,
-            api_key=os.environ["BEY_API_KEY"],
+            bey_api_key=os.environ["BEY_API_KEY"],
+            daily_api_key=os.environ["DAILY_API_KEY"],
             avatar_id=AVATAR_ID,
             room_url=room_url,
-            token=token,
             params=BeyParams(
                 audio_in_enabled=True,
                 audio_out_enabled=True,
