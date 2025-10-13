@@ -18,18 +18,34 @@ pip install pipecat-ai-bey
 
 ## Usage with Pipecat Pipeline
 
-The `BeyVideoService` integrates between your TTS service and transport output:
+The `BeyTransport` integrates with the Beyond Presence platform to create conversational AI applications where a Beyond Presence avatar provides synchronized video and audio output while your bot handles the conversation logic.
 
 ```python
-from pipecat.services.bey.video import BeyVideoService
+from pipecat_bey import BEY_AVATAR_BOT_NAME, BeyParams, BeyTransport
 
-bey_video = BeyVideoService(
+room_url = os.environ["DAILY_ROOM_URL"]
+
+token = await daily_rest_helper.get_token(
+    room_url=room_url,
+    params=DailyMeetingTokenParams(
+        properties=DailyMeetingTokenProperties(user_name=BEY_AVATAR_BOT_NAME),
+    ),
+    expiry_time=3600,  # 1 hour
+)
+
+transport = BeyTransport(
+    bot_name="Pipecat bot",
+    session=session,
     api_key=os.environ["BEY_API_KEY"],
     avatar_id="b9be11b8-89fb-4227-8f86-4a881393cbdb",  # Default "Ege" avatar
-    bot_name="My Video Bot",
-    transport_client=transport._client,
-    rest_helper=daily_rest_helper,
-    session=session,
+    room_url=room_url,
+    token=token,
+    params=BeyParams(
+        audio_in_enabled=True,
+        audio_out_enabled=True,
+        microphone_out_enabled=False,
+        vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+    ),
 )
 
 pipeline = Pipeline([
@@ -38,7 +54,6 @@ pipeline = Pipeline([
     context_aggregator.user(),
     llm,
     tts,
-    bey_video,  # Add video service here
     transport.output(),
     context_aggregator.assistant(),
 ])
@@ -61,7 +76,7 @@ See [example.py](example.py) for a complete working example.
 
 3. Run:
    ```bash
-   python example.py --transport daily
+   uv run python example.py
    ```
 
 The bot will create a Daily room with a video avatar that responds to your voice.
