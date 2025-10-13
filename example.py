@@ -29,7 +29,7 @@ from pipecat.transports.daily.utils import (
     DailyRESTHelper,
 )
 
-from bey.pipecat.services.video import BeyVideoService
+from pipecat_bey import BeyVideoService
 
 load_dotenv(override=True)
 
