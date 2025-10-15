@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipecat-ai-bey"
-version = "0.0.1"
+version = "0.0.2"
 description = "Generate real-time video avatars for your Pipecat AI agents with Beyond Presence"
 license = "BSD-2-Clause"
 license-files = ["LICENSE"]
