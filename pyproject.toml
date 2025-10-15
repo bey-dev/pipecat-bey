@@ -21,7 +21,8 @@ classifiers = [
 ]
 dependencies = [
     # Pipecat often releases breaking changes, so we pin to a specific version
-    "pipecat-ai==0.0.89",
+    # Our transport is based on top of Daily
+    "pipecat-ai[daily]==0.0.89",
 ]
 
 [project.urls]
@@ -30,7 +31,7 @@ Website = "https://beyondpresence.ai"
 
 [dependency-groups]
 dev = [
-    "pipecat-ai[daily,runner,silero,webrtc]",  # for the example
+    "pipecat-ai[openai,silero]",  # for the example
     "python-dotenv>=1.0.1,<2.0.0",  # for the example
     "ruff>=0.12.11,<1",
 ]
