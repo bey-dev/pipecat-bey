@@ -1765,7 +1765,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pipecat-ai" }]
+requires-dist = [{ name = "pipecat-ai", specifier = "==0.0.89" }]
 
 [package.metadata.requires-dev]
 dev = [
